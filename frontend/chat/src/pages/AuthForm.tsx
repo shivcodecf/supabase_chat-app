@@ -12,7 +12,7 @@ export default function AuthForm() {
     }
 
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email:email.trim(),
       password,
     });
 
@@ -23,6 +23,8 @@ export default function AuthForm() {
       console.log("User:", data.user);
     }
   };
+
+  
 
   const signIn = async () => {
     if (!email || !password) {
@@ -63,6 +65,7 @@ export default function AuthForm() {
 
       <button onClick={signIn}>Sign In</button>
       <button onClick={signUp}>Sign Up</button>
+      
     </div>
   );
 }
