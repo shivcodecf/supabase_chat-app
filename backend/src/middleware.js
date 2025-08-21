@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
  * Requires SUPABASE_JWT_SECRET in your .env (find it in Supabase → Settings → API).
  */
 export function validateJWT(req, res, next) {
+  
   try {
     const authHeader = req.headers.authorization || "";
     const token = authHeader.startsWith("Bearer ")
@@ -22,14 +23,18 @@ export function validateJWT(req, res, next) {
     });
 
     // Attach minimal user info for downstream handlers
+
     req.user = {
+
       id: payload.sub,
       email: payload.email,
       role: payload.role,
       raw: payload, // optional, remove if you don't want it
+
     };
 
     return next();
+
   } catch (err) {
     // Helpful logs during setup; remove in production
     console.error("JWT verify failed:", err?.message);

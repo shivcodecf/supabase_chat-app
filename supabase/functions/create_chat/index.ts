@@ -17,10 +17,13 @@ serve(async (req) => {
   }
 
   try {
+
     const { name, is_group = true, member_ids = [] } = await req.json();
 
     // 1) Verify caller with user token (anon client + Authorization header)
-    const authHeader = req.headers.get("Authorization");
+
+    const authHeader = req.headers.get("Authorization"); //  getting the Jwt from supabase
+
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers });
     }
@@ -32,11 +35,12 @@ serve(async (req) => {
     );
 
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Invalid user token" }), { status: 401, headers });
     }
 
-    // 2) Use service-role client to perform inserts (bypasses RLS)
+    // 2) Use service-role client to perform inserts (bypasses RLS) beacuse login user has not permissions to add chat of other members
     const supabaseSrv = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -52,21 +56,28 @@ serve(async (req) => {
       .select()
       .single();
 
+
+
     if (insertChatErr) {
       return new Response(JSON.stringify({ error: insertChatErr.message }), { status: 500, headers });
     }
 
+
     // create memberships
     const rows = allMemberIds.map((uid: string) => ({ chat_id: chat.id, user_id: uid }));
+
+
     const { error: insertMembersErr } = await supabaseSrv
       .from("chat_members")
       .insert(rows);
+
 
     if (insertMembersErr) {
       return new Response(JSON.stringify({ error: insertMembersErr.message }), { status: 500, headers });
     }
 
     return new Response(JSON.stringify({ chat_id: chat.id }), { status: 200, headers });
+    
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), { status: 500, headers });
   }

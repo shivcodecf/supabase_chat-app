@@ -3,16 +3,20 @@ import { supabase } from "../services/supabaseClient";
 import AuthForm from "./AuthForm";
 
 type Chat = { id: string; name: string | null; is_group: boolean };
+
 type Msg = {
+
   id?: string;
   chat_id: string;
   sender_id: string;
   content: string;
   inserted_at?: string;
   client_msg_id?: string;
+
 };
 
 export default function ChatBox() {
+
   const [session, setSession] = useState<any>(null);
   const [authReady, setAuthReady] = useState(false);
 
@@ -27,6 +31,7 @@ export default function ChatBox() {
 
   // ---------- AUTH ----------
   useEffect(() => {
+
     if (initOnceRef.current) return;
     initOnceRef.current = true;
 
@@ -39,7 +44,10 @@ export default function ChatBox() {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
     });
+
     return () => sub.subscription.unsubscribe();
+
+
   }, []);
 
   // ---------- Restore cached chats ----------
@@ -99,22 +107,32 @@ export default function ChatBox() {
 
   // ---------- Live refresh ----------
   useEffect(() => {
-    if (!session) return;
-    const channel = supabase
-      .channel("chats-for-me")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "chat_members",
-          filter: `user_id=eq.${session.user.id}`,
-        },
-        () => fetchMyChats(session.user.id)
-      )
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [session]);
+  if (!session) return;
+
+  const channel = supabase
+    .channel("my-chats-live")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "chat_members",
+        filter: `user_id=eq.${session.user.id}`,
+      },
+      (payload) => {
+        console.log("[realtime] new membership for me:", payload);
+        fetchMyChats(session.user.id); // re-fetch list
+      }
+    )
+    .subscribe((status) => console.log("[realtime] status:", status));
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [session]);
+
+
+
 
   // ---------- WebSocket ----------
   const wsUrl = useMemo(() => {
@@ -223,28 +241,60 @@ export default function ChatBox() {
   }, [session, chats]);
 
   // ---------- Create chat ----------
-  const createChat = async () => {
-    const name = prompt("Enter chat name (optional for group chat):");
-    if (!name) return;
+  // ...imports and component code above stay the same
 
-    const { data, error } = await supabase.functions.invoke("create_chat", {
-      body: { name, is_group: true, member_ids: [session.user.id] },
-      headers: { Authorization: `Bearer ${session.access_token}` },
+// REPLACE your createChat() with this:
+// replace your current createChat()
+// ...imports and component code above stay the same
+
+// REPLACE your createChat() with this:
+// ---------- Create chat ----------
+// CREATE NEW CHAT (DM example using email)
+// inside ChatBox.tsx
+const createChat = async () => {
+  const name = prompt("Enter chat name (optional):") || null;
+  const email = prompt("Enter the other user's email for a DM (leave blank for group):")?.trim();
+
+  // Build the payload: if email entered, it’s a DM; else it’s a group with just you for now
+  const payload: any = email
+    ? { name, is_group: false, other_user_email: email }
+    : { name, is_group: true, member_ids: [session.user.id] };
+
+  try {
+    const res = await fetch("http://localhost:3000/api/chats", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(payload),
     });
 
-    if (error) {
-      console.error("[create_chat] error:", error.message);
+    const data = await res.json();
+    if (!res.ok) {
+      console.error("[createChat] failed:", data?.error || res.statusText);
+      alert(data?.error || "Failed to create chat");
       return;
     }
 
-    const newChat: Chat = { id: data.chat_id, name, is_group: true };
-    setChats((prev) => {
+    // Add to local list & open it
+    const newChat = { id: data.chat_id, name: name || (payload.is_group ? "Group chat" : "DM"), is_group: !!payload.is_group };
+    setChats(prev => {
       const next = [...prev, newChat];
       localStorage.setItem("my_chats_cache", JSON.stringify(next));
       return next;
     });
-    joinChat(newChat);
-  };
+    await joinChat(newChat);
+  } catch (e:any) {
+    console.error("[createChat] error:", e);
+    alert(e.message || "Failed to create chat");
+  }
+};
+
+
+
+
+
 
   // ---------- Logout ----------
   const logOut = async () => {

@@ -11,14 +11,19 @@ serve(async (req) => {
   };
 
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers });
+
   if (req.method !== "POST") return new Response(JSON.stringify({ error: "Not Found" }), { status: 404, headers });
 
-  const secret = req.headers.get("x-secret");
+  const secret = req.headers.get("x-secret");  // getting from supabase headers
+
   if (secret !== Deno.env.get("EDGE_FUNCTION_SECRET")) {
+
     return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers });
+
   }
 
   let body;
+
   try {
     body = await req.json();
   } catch {
@@ -26,8 +31,11 @@ serve(async (req) => {
   }
 
   const { messages } = body || {};
+
   if (!Array.isArray(messages)) {
+
     return new Response(JSON.stringify({ error: "messages must be an array" }), { status: 400, headers });
+
   }
 
   for (const m of messages) {

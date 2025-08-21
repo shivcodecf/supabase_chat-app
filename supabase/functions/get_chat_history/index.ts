@@ -45,6 +45,7 @@ serve(async (req) => {
 
   // who is calling?
   const { data: { user }, error: userErr } = await supabase.auth.getUser();
+  
   if (userErr || !user) {
     return new Response(JSON.stringify({ error: "Invalid user" }), {
       status: 401,
