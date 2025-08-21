@@ -45,7 +45,7 @@ router.get("/chats", validateJWT, async (req, res) => {
 
     // Step 3: Fetch chats safely using .or() instead of .in()
     const filterString = chatIds.map(id => `id.eq.${id}`).join(',');
-    
+
     const { data: chats, error: err2 } = await supabase
       .from("chats")
       .select("*")
