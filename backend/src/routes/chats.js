@@ -10,14 +10,19 @@ const router = express.Router();
  * Requires SERVICE ROLE key (server-side only!)
  */
 async function adminFindUserByEmail(email) {
+
   const url = `${process.env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`;
 
   const resp = await fetch(url, {
+
     headers: {
+
       apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,        // 👈 required
       Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, // 👈 required
       "Content-Type": "application/json",
+      
     },
+
   });
 
   if (!resp.ok) {
@@ -28,7 +33,9 @@ async function adminFindUserByEmail(email) {
   const json = await resp.json().catch(() => ({}));
   // Response: { users: [ ... ] }
   const user = Array.isArray(json.users) ? json.users[0] : null;
+
   return user || null;
+
 }
 
 
@@ -37,7 +44,9 @@ async function adminFindUserByEmail(email) {
  * Return all chats for the authenticated user
  */
 router.get("/chats", validateJWT, async (req, res) => {
+
   try {
+
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorized" });
 
     // fetch memberships
@@ -46,9 +55,12 @@ router.get("/chats", validateJWT, async (req, res) => {
       .select("chat_id")
       .eq("user_id", req.user.id);
 
+
     if (mErr) return res.status(500).json({ error: mErr.message });
 
+
     const ids = (memberships ?? []).map((m) => m?.chat_id).filter(Boolean);
+
     if (ids.length === 0) return res.json([]);
 
     // fetch chats
@@ -57,13 +69,19 @@ router.get("/chats", validateJWT, async (req, res) => {
       .select("id, name, is_group")
       .in("id", ids);
 
+
+
     if (cErr) return res.status(500).json({ error: cErr.message });
 
+
     res.json(chats ?? []);
+
+
   } catch (err) {
     console.error("[GET /api/chats] error:", err);
     res.status(500).json({ error: err.message });
   }
+
 });
 
 /**
@@ -72,10 +90,13 @@ router.get("/chats", validateJWT, async (req, res) => {
  * body: { name?, other_user_email?, member_ids?[] }
  */
 router.post("/chats", validateJWT, async (req, res) => {
+
   try {
+
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorized" });
 
     const creatorId = req.user.id;
+
     const { name, other_user_email, member_ids } = req.body || {};
 
     // Build member set (no TS generics in JS)
@@ -117,13 +138,21 @@ router.post("/chats", validateJWT, async (req, res) => {
     }));
 
     const { error: memErr } = await supabase.from("chat_members").insert(rows);
+
     if (memErr) return res.status(500).json({ error: memErr.message });
 
     return res.json({ chat_id: chat.id });
+
+
   } catch (err) {
+
     console.error("[POST /api/chats] error:", err);
+
     res.status(500).json({ error: err.message });
+
   }
+
+
 });
 
 export default router;

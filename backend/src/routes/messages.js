@@ -41,10 +41,13 @@ router.get("/chats/:chat_id/messages", validateJWT, async (req, res) => {
 // POST /api/chats/:chat_id/messages
 // messages.js (server)
 router.post("/chats/:chat_id/messages", validateJWT, async (req, res) => {
+
   const { chat_id } = req.params;
+
   const { content, client_msg_id } = req.body || {};
 
   try {
+
     if (!chat_id) return res.status(400).json({ error: "chat_id is required" });
     if (!content?.trim()) return res.status(400).json({ error: "content is required" });
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorized" });
@@ -59,7 +62,8 @@ router.post("/chats/:chat_id/messages", validateJWT, async (req, res) => {
 
     console.log("[POST /messages] enqueue + broadcast ->", msg);
 
-    enqueueMessage(msg);              // queue for DB
+    enqueueMessage(msg);   
+               // queue for DB
     broadcastMessage(chat_id, msg);   // 🔥 WS broadcast NOW
 
     return res.status(202).json({ status: "enqueued", client_msg_id: msg.client_msg_id });

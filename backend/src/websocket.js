@@ -5,15 +5,21 @@ const wss = new WebSocketServer({ noServer: true });
 const clients = new Map(); // chat_id -> Set<WebSocket>
 
 export function setupWebsocket(server) {
+  
   server.on("upgrade", (req, socket, head) => {
     // accept /ws even with query string
     let pathname = "";
+
     try {
+
       const url = new URL(req.url, `http://${req.headers.host}`);
       pathname = url.pathname;
+
     } catch {
+
       socket.destroy();
       return;
+
     }
     if (pathname !== "/ws") {
       socket.destroy();

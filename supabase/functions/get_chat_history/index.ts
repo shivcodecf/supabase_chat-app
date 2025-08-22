@@ -45,7 +45,7 @@ serve(async (req) => {
 
   // who is calling?
   const { data: { user }, error: userErr } = await supabase.auth.getUser();
-  
+
   if (userErr || !user) {
     return new Response(JSON.stringify({ error: "Invalid user" }), {
       status: 401,
@@ -67,12 +67,15 @@ serve(async (req) => {
       headers,
     });
   }
+
+
   if (!membership) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers,
     });
   }
+  
 
   // fetch messages
   const { data, error } = await supabase

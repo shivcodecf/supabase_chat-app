@@ -5,18 +5,15 @@ import AuthForm from "./AuthForm";
 type Chat = { id: string; name: string | null; is_group: boolean };
 
 type Msg = {
-
   id?: string;
   chat_id: string;
   sender_id: string;
   content: string;
   inserted_at?: string;
   client_msg_id?: string;
-
 };
 
 export default function ChatBox() {
-
   const [session, setSession] = useState<any>(null);
   const [authReady, setAuthReady] = useState(false);
 
@@ -31,7 +28,6 @@ export default function ChatBox() {
 
   // ---------- AUTH ----------
   useEffect(() => {
-
     if (initOnceRef.current) return;
     initOnceRef.current = true;
 
@@ -46,8 +42,6 @@ export default function ChatBox() {
     });
 
     return () => sub.subscription.unsubscribe();
-
-
   }, []);
 
   // ---------- Restore cached chats ----------
@@ -107,32 +101,26 @@ export default function ChatBox() {
 
   // ---------- Live refresh ----------
   useEffect(() => {
-  if (!session) return;
+    if (!session) return;
 
-  const channel = supabase
-    .channel("my-chats-live")
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "chat_members",
-        filter: `user_id=eq.${session.user.id}`,
-      },
-      (payload) => {
-        console.log("[realtime] new membership for me:", payload);
-        fetchMyChats(session.user.id); // re-fetch list
-      }
-    )
-    .subscribe((status) => console.log("[realtime] status:", status));
+    const channel = supabase
+      .channel("my-chats-live")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_members",
+          filter: `user_id=eq.${session.user.id}`,
+        },
+        () => fetchMyChats(session.user.id)
+      )
+      .subscribe();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [session]);
-
-
-
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session]);
 
   // ---------- WebSocket ----------
   const wsUrl = useMemo(() => {
@@ -147,12 +135,8 @@ export default function ChatBox() {
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-      console.log("[ws] open");
-
-      // join last chat if known
       const last = currentChat?.id || localStorage.getItem("last_chat_id");
       if (last) {
-        console.log("[ws] auto-joining chat", last);
         ws.send(JSON.stringify({ type: "join", chat_id: last }));
       }
     };
@@ -160,12 +144,8 @@ export default function ChatBox() {
     ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
-        console.log("[ws] incoming", msg);
 
-        if (msg.type === "joined") {
-          console.log(`[ws] ACK joined room ${msg.chat_id} (size=${msg.size})`);
-          return;
-        }
+        if (msg.type === "joined") return;
 
         if (msg.type !== "new_message") return;
         if (msg.chat_id !== currentChat?.id) return;
@@ -220,10 +200,8 @@ export default function ChatBox() {
     }
 
     if (wsRef.current) {
-      const sendJoin = () => {
-        console.log("[ws] sending join from joinChat", chat.id);
+      const sendJoin = () =>
         wsRef.current?.send(JSON.stringify({ type: "join", chat_id: chat.id }));
-      };
       if (wsRef.current.readyState === WebSocket.OPEN) sendJoin();
       else wsRef.current.addEventListener("open", sendJoin, { once: true });
     }
@@ -241,60 +219,49 @@ export default function ChatBox() {
   }, [session, chats]);
 
   // ---------- Create chat ----------
-  // ...imports and component code above stay the same
+  const createChat = async () => {
+    const name = prompt("Enter chat name (optional):") || null;
+    const email = prompt(
+      "Enter the other user's email for a DM (leave blank for group):"
+    )?.trim();
 
-// REPLACE your createChat() with this:
-// replace your current createChat()
-// ...imports and component code above stay the same
+    const payload: any = email
+      ? { name, is_group: false, other_user_email: email }
+      : { name, is_group: true, member_ids: [session.user.id] };
 
-// REPLACE your createChat() with this:
-// ---------- Create chat ----------
-// CREATE NEW CHAT (DM example using email)
-// inside ChatBox.tsx
-const createChat = async () => {
-  const name = prompt("Enter chat name (optional):") || null;
-  const email = prompt("Enter the other user's email for a DM (leave blank for group):")?.trim();
+    try {
+      const res = await fetch("http://localhost:3000/api/chats", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
-  // Build the payload: if email entered, it’s a DM; else it’s a group with just you for now
-  const payload: any = email
-    ? { name, is_group: false, other_user_email: email }
-    : { name, is_group: true, member_ids: [session.user.id] };
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("[createChat] failed:", data?.error || res.statusText);
+        alert(data?.error || "Failed to create chat");
+        return;
+      }
 
-  try {
-    const res = await fetch("http://localhost:3000/api/chats", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      console.error("[createChat] failed:", data?.error || res.statusText);
-      alert(data?.error || "Failed to create chat");
-      return;
+      const newChat = {
+        id: data.chat_id,
+        name: name || (payload.is_group ? "Group chat" : "DM"),
+        is_group: !!payload.is_group,
+      };
+      setChats((prev) => {
+        const next = [...prev, newChat];
+        localStorage.setItem("my_chats_cache", JSON.stringify(next));
+        return next;
+      });
+      await joinChat(newChat);
+    } catch (e: any) {
+      console.error("[createChat] error:", e);
+      alert(e.message || "Failed to create chat");
     }
-
-    // Add to local list & open it
-    const newChat = { id: data.chat_id, name: name || (payload.is_group ? "Group chat" : "DM"), is_group: !!payload.is_group };
-    setChats(prev => {
-      const next = [...prev, newChat];
-      localStorage.setItem("my_chats_cache", JSON.stringify(next));
-      return next;
-    });
-    await joinChat(newChat);
-  } catch (e:any) {
-    console.error("[createChat] error:", e);
-    alert(e.message || "Failed to create chat");
-  }
-};
-
-
-
-
-
+  };
 
   // ---------- Logout ----------
   const logOut = async () => {
@@ -312,12 +279,11 @@ const createChat = async () => {
   };
 
   // ---------- Send ----------
-    const send = async () => {
+  const send = async () => {
     if (!currentChat || !input.trim()) return;
     const messageContent = input.trim();
     const clientMsgId = crypto.randomUUID();
 
-    // seed dedupe immediately
     seenIdsRef.current.add(clientMsgId);
 
     const res = await fetch(
@@ -343,7 +309,6 @@ const createChat = async () => {
 
     setInput("");
 
-    // Optimistically add message (temporary until WS echo confirms)
     setHistory((h) => [
       ...h,
       {
@@ -356,68 +321,99 @@ const createChat = async () => {
     ]);
   };
 
-
   // ---------- Render ----------
-  if (!authReady) return <div style={{ padding: 16 }}>Loading…</div>;
+  if (!authReady) return <div className="p-4">Loading…</div>;
   if (!session) return <AuthForm />;
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "280px 1fr",
-        height: "100vh",
-        gap: 16,
-        padding: 16,
-      }}
-    >
-      <aside>
-        <h3>Chats</h3>
-        <button onClick={createChat} style={{ marginBottom: 8 }}>
-          + New Chat
-        </button>
-        <ul>
+    <div className="grid h-screen grid-cols-[280px_1fr] gap-4 p-4 bg-gray-50">
+      {/* Sidebar */}
+      <aside className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-800">Chats</h3>
+          <button
+            onClick={createChat}
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 active:scale-[.98] transition"
+          >
+            + New
+          </button>
+        </div>
+
+        <ul className="flex-1 overflow-auto p-2">
           {chats.map((c) => (
-            <li key={c.id}>
-              <button onClick={() => joinChat(c)} style={{ width: "100%" }}>
-                {c.name || (c.is_group ? "Group chat" : "DM")}
+            <li key={c.id} className="p-1">
+              <button
+                onClick={() => joinChat(c)}
+                className={`w-full rounded-xl px-3 py-2 text-left transition border
+                  ${
+                    currentChat?.id === c.id
+                      ? "bg-indigo-50 border-indigo-200 text-indigo-900"
+                      : "bg-white hover:bg-gray-50 border-gray-200 text-gray-800"
+                  }`}
+              >
+                <div className="text-sm font-medium">
+                  {c.name || (c.is_group ? "Group chat" : "DM")}
+                </div>
+                <div className="text-xs text-gray-500 truncate">{c.id}</div>
               </button>
             </li>
           ))}
+          {chats.length === 0 && (
+            <div className="p-4 text-sm text-gray-500">No chats yet.</div>
+          )}
         </ul>
+
+        <div className="p-3 border-t border-gray-100">
+          <button
+            onClick={logOut}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            Logout
+          </button>
+        </div>
       </aside>
 
-      <main>
-        <h3>{currentChat ? currentChat.name || currentChat.id : "Pick a chat"}</h3>
+      {/* Main */}
+      <main className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-800">
+            {currentChat ? currentChat.name || currentChat.id : "Pick a chat"}
+          </h3>
+        </div>
 
-        <div
-          style={{
-            border: "1px solid #ccc",
-            height: "70vh",
-            overflow: "auto",
-            padding: 8,
-          }}
-        >
+        <div className="flex-1 overflow-auto p-4 space-y-2">
           {history.map((m, i) => (
-            <div key={m.client_msg_id || m.id || i.toString()}>
-              <strong>{m.sender_id.slice(0, 6)}:</strong> {m.content}
+            <div
+              key={m.client_msg_id || m.id || i.toString()}
+              className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm"
+            >
+              <span className="mr-2 font-semibold text-gray-800">
+                {m.sender_id.slice(0, 6)}:
+              </span>
+              <span className="text-gray-700">{m.content}</span>
             </div>
           ))}
+          {currentChat && history.length === 0 && (
+            <div className="text-sm text-gray-500">No messages yet.</div>
+          )}
         </div>
 
         {currentChat && (
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <div className="flex gap-2 p-3 border-t border-gray-100">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type..."
-              style={{ flex: 1 }}
+              placeholder="Type a message…"
+              className="flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
             />
-            <button onClick={send}>Send</button>
+            <button
+              onClick={send}
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 active:scale-[.98] transition"
+            >
+              Send
+            </button>
           </div>
         )}
-
-        <button onClick={logOut}>Logout</button>
       </main>
     </div>
   );
