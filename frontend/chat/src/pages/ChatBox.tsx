@@ -3,7 +3,6 @@ import { supabase } from "../services/supabaseClient";
 import AuthForm from "./AuthForm";
 
 type Chat = { id: string; name: string | null; is_group: boolean };
-
 type Msg = {
   id?: string;
   chat_id: string;
@@ -40,7 +39,6 @@ export default function ChatBox() {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
     });
-
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -55,7 +53,7 @@ export default function ChatBox() {
     }
   }, []);
 
-  // ---------- Fetch my chats ----------
+  // ---------- Fetch my chats (Supabase, RLS) ----------
   const fetchMyChats = async (uid: string) => {
     const { data: memberships, error: mErr } = await supabase
       .from("chat_members")
@@ -99,7 +97,7 @@ export default function ChatBox() {
     fetchMyChats(session.user.id);
   }, [authReady, session]);
 
-  // ---------- Live refresh ----------
+  // ---------- Live refresh of chat list (Supabase Realtime) ----------
   useEffect(() => {
     if (!session) return;
 
@@ -122,11 +120,11 @@ export default function ChatBox() {
     };
   }, [session]);
 
-  // ---------- WebSocket ----------
+  // ---------- WebSocket (for live messages only) ----------
   const wsUrl = useMemo(() => {
     if (!session) return null;
     const token = session.access_token;
-    const base = import.meta.env.VITE_SERVER_WS_URL!; // ws://localhost:3000/ws
+    const base = import.meta.env.VITE_SERVER_WS_URL!; // e.g. ws://localhost:3000/ws
     return `${base}?token=${encodeURIComponent(token)}`;
   }, [session]);
 
@@ -144,8 +142,6 @@ export default function ChatBox() {
     ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
-
-        if (msg.type === "joined") return;
 
         if (msg.type !== "new_message") return;
         if (msg.chat_id !== currentChat?.id) return;
@@ -193,7 +189,7 @@ export default function ChatBox() {
             `${m.chat_id}:${m.sender_id}:${m.inserted_at}:${m.content}`;
           seenIdsRef.current.add(key);
         });
-        setHistory(data.reverse());
+        setHistory(data.reverse()); // oldest -> newest
       }
     } catch (err) {
       console.error("[joinChat] history error:", err);
@@ -218,7 +214,7 @@ export default function ChatBox() {
     }
   }, [session, chats]);
 
-  // ---------- Create chat ----------
+  // ---------- Create chat (Edge Function: create_chat) ----------
   const createChat = async () => {
     const name = prompt("Enter chat name (optional):") || null;
     const email = prompt(
@@ -226,36 +222,38 @@ export default function ChatBox() {
     )?.trim();
 
     const payload: any = email
-      ? { name, is_group: false, other_user_email: email }
+      ? { name, is_group: false, member_ids: [], other_user_email: email } // your EF can ignore member_ids for DM
       : { name, is_group: true, member_ids: [session.user.id] };
 
     try {
-      const res = await fetch("http://localhost:3000/api/chats", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(payload),
+      const { data, error } = await supabase.functions.invoke("create_chat", {
+        body: payload,
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        console.error("[createChat] failed:", data?.error || res.statusText);
-        alert(data?.error || "Failed to create chat");
+      if (error) {
+        console.error("[create_chat] failed:", error.message);
+        alert(error.message || "Failed to create chat");
         return;
       }
 
+      const chat_id = data?.chat_id;
+      if (!chat_id) return;
+
+      // Optimistic add; the other user will get the row via Realtime (chat_members)
       const newChat = {
-        id: data.chat_id,
+        id: chat_id,
         name: name || (payload.is_group ? "Group chat" : "DM"),
         is_group: !!payload.is_group,
       };
+
       setChats((prev) => {
+        if (prev.some((c) => c.id === chat_id)) return prev;
         const next = [...prev, newChat];
         localStorage.setItem("my_chats_cache", JSON.stringify(next));
         return next;
       });
+
       await joinChat(newChat);
     } catch (e: any) {
       console.error("[createChat] error:", e);
@@ -278,12 +276,14 @@ export default function ChatBox() {
     }
   };
 
-  // ---------- Send ----------
+  // ---------- Send message ----------
+  // NOTE: We keep REST here so it persists through your existing server queue.
   const send = async () => {
     if (!currentChat || !input.trim()) return;
     const messageContent = input.trim();
     const clientMsgId = crypto.randomUUID();
 
+    // dedupe seed
     seenIdsRef.current.add(clientMsgId);
 
     const res = await fetch(
@@ -308,7 +308,7 @@ export default function ChatBox() {
     }
 
     setInput("");
-
+    // Optimistic message (WS echo will keep in sync)
     setHistory((h) => [
       ...h,
       {
@@ -317,6 +317,7 @@ export default function ChatBox() {
         content: messageContent,
         inserted_at: new Date().toISOString(),
         client_msg_id: clientMsgId,
+        id: clientMsgId,
       },
     ]);
   };

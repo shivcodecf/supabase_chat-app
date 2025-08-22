@@ -33,22 +33,30 @@ let messageQueue = [];
 
 // enqueue message
 export function enqueueMessage(msg) {
+
   if (!msg.client_msg_id) {
-    msg.client_msg_id = crypto.randomUUID();
+
+    msg.client_msg_id = crypto.randomUUID();  //  Each message needs a unique identifier (client_msg_id) to avoid duplicates.
+
   }
 
   messageQueue.push(msg);
+
   console.log("📩 Enqueued message:", msg);
 
   // broadcast immediately
-  broadcastMessage(msg.chat_id, msg);
+  broadcastMessage(msg.chat_id, msg);  // 
+
 }
 
 // flush messages to Supabase Edge Function
+
 async function flushQueue() {
+
   if (messageQueue.length === 0) return;
 
   const batch = messageQueue.splice(0, 500);
+
   console.log(`🌀 Flushing ${batch.length} messages to Supabase...`);
 
   try {
@@ -64,6 +72,7 @@ async function flushQueue() {
     });
 
     const text = await resp.text();
+    
     if (!resp.ok) {
       console.error(`❌ Failed to flush batch (${resp.status}): ${text}`);
       // requeue for retry
@@ -75,6 +84,7 @@ async function flushQueue() {
     console.error("⚠️ Error flushing batch:", err);
     messageQueue = [...batch, ...messageQueue];
   }
+
 }
 
 

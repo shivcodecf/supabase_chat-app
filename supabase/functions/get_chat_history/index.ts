@@ -75,15 +75,18 @@ serve(async (req) => {
       headers,
     });
   }
-  
+
 
   // fetch messages
+  
   const { data, error } = await supabase
     .from("messages")
     .select("*")
     .eq("chat_id", chat_id)
     .order("inserted_at", { ascending: true })
     .limit(Number.isFinite(+limit) ? +limit : 100);
+
+
 
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), {

@@ -8,9 +8,11 @@ const router = express.Router();
 
 // GET /api/chats/:chat_id/messages
 router.get("/chats/:chat_id/messages", validateJWT, async (req, res) => {
+
   try {
     // Call your Edge Function (POST) with user JWT for RLS-safe read
     const resp = await fetch(
+
       `${process.env.SUPABASE_URL}/functions/v1/get_chat_history`,
       {
         method: "POST",
@@ -23,6 +25,7 @@ router.get("/chats/:chat_id/messages", validateJWT, async (req, res) => {
           limit: Number.isFinite(+req.query.limit) ? +req.query.limit : 100,
         }),
       }
+
     );
 
     if (!resp.ok) {
@@ -31,11 +34,18 @@ router.get("/chats/:chat_id/messages", validateJWT, async (req, res) => {
     }
 
     const data = await resp.json();
+
     res.json(data);
+
+
   } catch (err) {
+
     console.error("❌ Error fetching chat history:", err);
+    
     res.status(500).json({ error: err.message });
+
   }
+
 });
 
 // POST /api/chats/:chat_id/messages
