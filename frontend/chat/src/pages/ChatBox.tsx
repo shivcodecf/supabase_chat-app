@@ -313,8 +313,13 @@ export default function ChatBox() {
     // dedupe seed
     seenIdsRef.current.add(clientMsgId);
 
+     const API_URL = import.meta.env.VITE_BACKEND_PUBLIC_API_URL;
+
     const res = await fetch(
-      `https://supabase-chat-app-2hiy.onrender.com/api/chats/${currentChat.id}/messages`,
+
+     
+
+      `${API_URL}/api/chats/${currentChat.id}/messages`,
       {
         method: "POST",
         headers: {
@@ -326,6 +331,7 @@ export default function ChatBox() {
           client_msg_id: clientMsgId,
         }),
       }
+
     );
 
     if (!res.ok) {

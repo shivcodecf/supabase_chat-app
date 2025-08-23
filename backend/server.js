@@ -13,9 +13,11 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+const FRONTEND_URL = process.env.FRONTEND_PUBLIC_URL
+
 app.use(
   cors({
-    origin: "https://supabase-chat-app-mu.vercel.app",
+    origin: FRONTEND_URL,
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true, // set true only if you use cookies
