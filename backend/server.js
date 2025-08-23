@@ -4,7 +4,7 @@ import healthRoutes from "./src/routes/health.js";
 import chatRoutes from "./src/routes/chats.js";
 import messageRoutes from "./src/routes/messages.js";
 import { setupWebsocket, broadcastMessage } from "./src/websocket.js";
-import fetch from "node-fetch";
+
 import crypto from "crypto"; // ✅ for generating UUIDs
 import cors from "cors";
 
