@@ -314,7 +314,7 @@ export default function ChatBox() {
     seenIdsRef.current.add(clientMsgId);
 
     const res = await fetch(
-      `https://supabase-chat-app-fpum.onrender.com/api/chats/${currentChat.id}/messages`,
+      `https://supabase-chat-app-2hiy.onrender.com/api/chats/${currentChat.id}/messages`,
       {
         method: "POST",
         headers: {
