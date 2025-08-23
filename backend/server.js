@@ -72,7 +72,7 @@ async function flushQueue() {
     });
 
     const text = await resp.text();
-    
+
     if (!resp.ok) {
       console.error(`❌ Failed to flush batch (${resp.status}): ${text}`);
       // requeue for retry
@@ -98,8 +98,12 @@ app.use("/api", chatRoutes);
 app.use("/api", messageRoutes);
 
 // ------------------ SERVER & WS ------------------
-const server = app.listen(3000, () => {
-  console.log("🚀 Server running on http://localhost:3000");
+
+const PORT = process.env.PORT | 3000
+
+
+const server = app.listen(PORT, () => {
+  console.log(` Server running on ${PORT}`);
 });
 
 setupWebsocket(server);
