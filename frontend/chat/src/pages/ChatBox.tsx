@@ -13,6 +13,7 @@ type Msg = {
 };
 
 export default function ChatBox() {
+
   const [session, setSession] = useState<any>(null);
   const [authReady, setAuthReady] = useState(false);
 
@@ -27,34 +28,52 @@ export default function ChatBox() {
 
   // ---------- AUTH ----------
   useEffect(() => {
+
     if (initOnceRef.current) return;
+
     initOnceRef.current = true;
 
     (async () => {
+
       const { data } = await supabase.auth.getSession();
       setSession(data.session ?? null);
       setAuthReady(true);
+
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+
       setSession(s);
+
     });
+
     return () => sub.subscription.unsubscribe();
+
   }, []);
 
   // ---------- Restore cached chats ----------
+
   useEffect(() => {
+
     const cached = localStorage.getItem("my_chats_cache");
+
     if (cached) {
+
       try {
+
         const parsed = JSON.parse(cached);
+
         if (Array.isArray(parsed)) setChats(parsed);
+
       } catch {}
+
     }
+
   }, []);
 
   // ---------- Fetch my chats (Supabase, RLS) ----------
   const fetchMyChats = async (uid: string) => {
+
     const { data: memberships, error: mErr } = await supabase
       .from("chat_members")
       .select("chat_id")
@@ -66,6 +85,7 @@ export default function ChatBox() {
     }
 
     const ids = (memberships ?? []).map((m: any) => m?.chat_id).filter(Boolean);
+
     if (ids.length === 0) {
       setChats([]);
       localStorage.setItem("my_chats_cache", JSON.stringify([]));
@@ -90,7 +110,10 @@ export default function ChatBox() {
 
     setChats(mapped);
     localStorage.setItem("my_chats_cache", JSON.stringify(mapped));
+
   };
+
+
 
   useEffect(() => {
     if (!authReady || !session) return;
@@ -98,7 +121,9 @@ export default function ChatBox() {
   }, [authReady, session]);
 
   // ---------- Live refresh of chat list (Supabase Realtime) ----------
+  
   useEffect(() => {
+
     if (!session) return;
 
     const channel = supabase
@@ -118,7 +143,9 @@ export default function ChatBox() {
     return () => {
       supabase.removeChannel(channel);
     };
+
   }, [session]);
+
 
   // ---------- WebSocket (for live messages only) ----------
   const wsUrl = useMemo(() => {

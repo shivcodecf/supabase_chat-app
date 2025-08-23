@@ -6,6 +6,7 @@ const wss = new WebSocketServer({ noServer: true });
 const clients = new Map(); // chat_id -> Set<WebSocket>
 
 export function setupWebsocket(server) {
+
   server.on("upgrade", (req, socket, head) => {
     // accept /ws even with query string
     let pathname = "";
@@ -68,6 +69,7 @@ export function setupWebsocket(server) {
       }
     });
 
+
     ws.on("close", () => {
       for (const [chatId, set] of clients) {
         if (set.delete(ws)) {
@@ -76,6 +78,7 @@ export function setupWebsocket(server) {
         }
       }
     });
+    
   });
 
   // keep-alive
