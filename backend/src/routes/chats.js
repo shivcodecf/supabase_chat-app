@@ -5,10 +5,7 @@ import { supabase } from "../supabaseClient.js";
 
 const router = express.Router();
 
-/**
- * Helper: find a Supabase user by email using GoTrue Admin REST API
- * Requires SERVICE ROLE key (server-side only!)
- */
+
 async function adminFindUserByEmail(email) {
 
   const url = `${process.env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`;
@@ -17,10 +14,10 @@ async function adminFindUserByEmail(email) {
 
     headers: {
 
-      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,        // 👈 required
-      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, // 👈 required
+      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,       
+      Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, 
       "Content-Type": "application/json",
-      
+
     },
 
   });
@@ -31,7 +28,7 @@ async function adminFindUserByEmail(email) {
   }
 
   const json = await resp.json().catch(() => ({}));
-  // Response: { users: [ ... ] }
+  
   const user = Array.isArray(json.users) ? json.users[0] : null;
 
   return user || null;
@@ -39,17 +36,14 @@ async function adminFindUserByEmail(email) {
 }
 
 
-/**
- * GET /api/chats
- * Return all chats for the authenticated user
- */
+
 router.get("/chats", validateJWT, async (req, res) => {
 
   try {
 
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorized" });
 
-    // fetch memberships
+    
     const { data: memberships, error: mErr } = await supabase
       .from("chat_members")
       .select("chat_id")
@@ -63,7 +57,7 @@ router.get("/chats", validateJWT, async (req, res) => {
 
     if (ids.length === 0) return res.json([]);
 
-    // fetch chats
+    
     const { data: chats, error: cErr } = await supabase
       .from("chats")
       .select("id, name, is_group")
@@ -84,11 +78,7 @@ router.get("/chats", validateJWT, async (req, res) => {
 
 });
 
-/**
- * POST /api/chats
- * Create a DM (other_user_email) or group (member_ids) chat
- * body: { name?, other_user_email?, member_ids?[] }
- */
+
 router.post("/chats", validateJWT, async (req, res) => {
 
   try {
@@ -99,13 +89,13 @@ router.post("/chats", validateJWT, async (req, res) => {
 
     const { name, other_user_email, member_ids } = req.body || {};
 
-    // Build member set (no TS generics in JS)
+   
     const members = new Set([creatorId]);
 
     let is_group = true;
 
     if (other_user_email && typeof other_user_email === "string") {
-      // DM flow: resolve other user by email via admin REST
+      
       const other = await adminFindUserByEmail(other_user_email.trim());
       if (!other) {
         return res
@@ -115,14 +105,14 @@ router.post("/chats", validateJWT, async (req, res) => {
       members.add(other.id);
       is_group = false;
     } else if (Array.isArray(member_ids)) {
-      // group flow: add provided member ids
+      
       for (const id of member_ids) {
         if (typeof id === "string" && id) members.add(id);
       }
       is_group = true;
     }
 
-    // Create the chat
+    
     const { data: chat, error: chatErr } = await supabase
       .from("chats")
       .insert({ name: name || null, is_group })
@@ -131,7 +121,7 @@ router.post("/chats", validateJWT, async (req, res) => {
 
     if (chatErr) return res.status(500).json({ error: chatErr.message });
 
-    // Insert memberships
+    
     const rows = Array.from(members).map((uid) => ({
       chat_id: chat.id,
       user_id: uid,

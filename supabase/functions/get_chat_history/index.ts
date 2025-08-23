@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 serve(async (req) => {
   const headers = {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "http://localhost:5173",
+    "Access-Control-Allow-Origin": "https://supabase-chat-app-gilt.vercel.app",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers":
       "Authorization, Content-Type, x-client-info, apikey",
@@ -36,14 +36,14 @@ serve(async (req) => {
     });
   }
 
-  // use anon key + user JWT so RLS applies as the user
+  
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_ANON_KEY")!,
     { global: { headers: { Authorization: authHeader } } }
   );
 
-  // who is calling?
+  
   const { data: { user }, error: userErr } = await supabase.auth.getUser();
 
   if (userErr || !user) {
@@ -53,7 +53,7 @@ serve(async (req) => {
     });
   }
 
-  // must be a member of this chat
+  
   const { data: membership, error: memErr } = await supabase
     .from("chat_members")
     .select("chat_id")
@@ -77,8 +77,8 @@ serve(async (req) => {
   }
 
 
-  // fetch messages
   
+
   const { data, error } = await supabase
     .from("messages")
     .select("*")

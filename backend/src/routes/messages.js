@@ -6,11 +6,11 @@ import crypto from "crypto";
 
 const router = express.Router();
 
-// GET /api/chats/:chat_id/messages
+
 router.get("/chats/:chat_id/messages", validateJWT, async (req, res) => {
 
   try {
-    // Call your Edge Function (POST) with user JWT for RLS-safe read
+    
     const resp = await fetch(
 
       `${process.env.SUPABASE_URL}/functions/v1/get_chat_history`,
@@ -40,16 +40,15 @@ router.get("/chats/:chat_id/messages", validateJWT, async (req, res) => {
 
   } catch (err) {
 
-    console.error("❌ Error fetching chat history:", err);
-    
+    console.error(" Error fetching chat history:", err);
+
     res.status(500).json({ error: err.message });
 
   }
 
 });
 
-// POST /api/chats/:chat_id/messages
-// messages.js (server)
+
 router.post("/chats/:chat_id/messages", validateJWT, async (req, res) => {
 
   const { chat_id } = req.params;
@@ -73,8 +72,8 @@ router.post("/chats/:chat_id/messages", validateJWT, async (req, res) => {
     console.log("[POST /messages] enqueue + broadcast ->", msg);
 
     enqueueMessage(msg);   
-               // queue for DB
-    broadcastMessage(chat_id, msg);   // 🔥 WS broadcast NOW
+              
+    broadcastMessage(chat_id, msg);   
 
     return res.status(202).json({ status: "enqueued", client_msg_id: msg.client_msg_id });
   } catch (err) {

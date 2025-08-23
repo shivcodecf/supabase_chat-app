@@ -3,12 +3,12 @@ import { enqueueMessage } from "../server.js";
 
 const wss = new WebSocketServer({ noServer: true });
 
-const clients = new Map(); // chat_id -> Set<WebSocket>
+const clients = new Map(); 
 
 export function setupWebsocket(server) {
 
   server.on("upgrade", (req, socket, head) => {
-    // accept /ws even with query string
+    
     let pathname = "";
 
     try {
@@ -39,14 +39,14 @@ export function setupWebsocket(server) {
         return;
       }
 
-      // --- JOIN ROOM ---
+      
       if (data.type === "join" && data.chat_id) {
         if (!clients.has(data.chat_id)) clients.set(data.chat_id, new Set());
         clients.get(data.chat_id).add(ws);
         const size = clients.get(data.chat_id).size;
         console.log(`[ws] joined room=${data.chat_id} size=${size}`);
 
-        // ACK so the client knows it’s in the room
+       
         try {
           ws.send(
             JSON.stringify({ type: "joined", chat_id: data.chat_id, size })
@@ -55,7 +55,7 @@ export function setupWebsocket(server) {
         return;
       }
 
-      // --- OPTIONAL: SEND MESSAGE OVER WS (you mostly post via REST) ---
+      
       if (data.type === "message" && data.chat_id && data.content) {
         const msg = {
           chat_id: data.chat_id,
@@ -65,7 +65,7 @@ export function setupWebsocket(server) {
           client_msg_id: data.client_msg_id,
         };
         enqueueMessage(msg);
-        broadcastMessage(data.chat_id, msg); // will send type:new_message payload
+        broadcastMessage(data.chat_id, msg); 
       }
     });
 
@@ -78,10 +78,10 @@ export function setupWebsocket(server) {
         }
       }
     });
-    
+
   });
 
-  // keep-alive
+  
   const interval = setInterval(() => {
     for (const ws of wss.clients) {
       if (ws.isAlive === false) return ws.terminate();

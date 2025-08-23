@@ -12,7 +12,7 @@ export default function AuthForm() {
     }
 
     const { data, error } = await supabase.auth.signUp({
-      email:email.trim(),
+      email: email.trim(),
       password,
     });
 
@@ -23,8 +23,6 @@ export default function AuthForm() {
       console.log("User:", data.user);
     }
   };
-
-  
 
   const signIn = async () => {
     if (!email || !password) {
@@ -46,7 +44,9 @@ export default function AuthForm() {
   };
 
   return (
-    <div style={{ maxWidth: 360, margin: "10vh auto", display: "grid", gap: 8 }}>
+    <div
+      style={{ maxWidth: 360, margin: "10vh auto", display: "grid", gap: 8 }}
+    >
       <h2>Login / Signup</h2>
 
       <input
@@ -65,7 +65,6 @@ export default function AuthForm() {
 
       <button onClick={signIn}>Sign In</button>
       <button onClick={signUp}>Sign Up</button>
-      
     </div>
   );
 }

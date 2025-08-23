@@ -1,11 +1,11 @@
-// supabase/functions/create_chat/index.ts
+
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 serve(async (req) => {
   const headers = {
     "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "http://localhost:5173", // adjust if needed
+    "Access-Control-Allow-Origin": "https://supabase-chat-app-gilt.vercel.app", 
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Authorization, Content-Type, x-client-info, apikey",
   };
@@ -19,7 +19,7 @@ serve(async (req) => {
     const body = await req.json();
     const { name = null, is_group = true, member_ids = [], other_user_email } = body ?? {};
 
-    // 1) Validate caller (user token so we know creator's id)
+   
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers });
@@ -36,10 +36,10 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Invalid user token" }), { status: 401, headers });
     }
 
-    // 2) Prepare full member list
-    const allMemberIds = new Set<string>([user.id]); // always include creator
+    
+    const allMemberIds = new Set<string>([user.id]); 
 
-    // If DM by email → look up the other user with Admin REST (service-role)
+    
     if (other_user_email && typeof other_user_email === "string") {
       const email = other_user_email.trim();
       if (email) {
@@ -70,18 +70,18 @@ serve(async (req) => {
       }
     }
 
-    // If group with explicit member_ids
+    
     if (Array.isArray(member_ids)) {
       for (const id of member_ids) if (typeof id === "string" && id) allMemberIds.add(id);
     }
 
-    // 3) Use service-role client to insert (bypasses RLS)
+    
     const supabaseSrv = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Create chat
+    
     const { data: chat, error: chatErr } = await supabaseSrv
       .from("chats")
       .insert({ name, is_group: other_user_email ? false : !!is_group })
@@ -92,7 +92,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: chatErr.message }), { status: 500, headers });
     }
 
-    // Insert memberships for ALL members (creator + other)
+    
     const rows = Array.from(allMemberIds).map((uid) => ({ chat_id: chat.id, user_id: uid }));
     const { error: memErr } = await supabaseSrv.from("chat_members").insert(rows);
     if (memErr) {

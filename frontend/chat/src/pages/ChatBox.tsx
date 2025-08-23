@@ -13,7 +13,7 @@ type Msg = {
 };
 
 export default function ChatBox() {
-
+  
   const [session, setSession] = useState<any>(null);
   const [authReady, setAuthReady] = useState(false);
 
@@ -26,54 +26,37 @@ export default function ChatBox() {
   const wsRef = useRef<WebSocket | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
 
-  // ---------- AUTH ----------
   useEffect(() => {
-
     if (initOnceRef.current) return;
 
     initOnceRef.current = true;
 
     (async () => {
-
       const { data } = await supabase.auth.getSession();
       setSession(data.session ?? null);
       setAuthReady(true);
-
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-
       setSession(s);
-
     });
 
     return () => sub.subscription.unsubscribe();
-
   }, []);
 
-  // ---------- Restore cached chats ----------
-
   useEffect(() => {
-
     const cached = localStorage.getItem("my_chats_cache");
 
     if (cached) {
-
       try {
-
         const parsed = JSON.parse(cached);
 
         if (Array.isArray(parsed)) setChats(parsed);
-
       } catch {}
-
     }
-
   }, []);
 
-  // ---------- Fetch my chats (Supabase, RLS) ----------
   const fetchMyChats = async (uid: string) => {
-
     const { data: memberships, error: mErr } = await supabase
       .from("chat_members")
       .select("chat_id")
@@ -110,20 +93,14 @@ export default function ChatBox() {
 
     setChats(mapped);
     localStorage.setItem("my_chats_cache", JSON.stringify(mapped));
-
   };
-
-
 
   useEffect(() => {
     if (!authReady || !session) return;
     fetchMyChats(session.user.id);
   }, [authReady, session]);
 
-  // ---------- Live refresh of chat list (Supabase Realtime) ----------
-
   useEffect(() => {
-
     if (!session) return;
 
     const channel = supabase
@@ -143,15 +120,12 @@ export default function ChatBox() {
     return () => {
       supabase.removeChannel(channel);
     };
-
   }, [session]);
 
-
-  // ---------- WebSocket (for live messages only) ----------
   const wsUrl = useMemo(() => {
     if (!session) return null;
     const token = session.access_token;
-    const base = import.meta.env.VITE_SERVER_WS_URL!; // e.g. ws://localhost:3000/ws
+    const base = import.meta.env.VITE_SERVER_WS_URL!;
     return `${base}?token=${encodeURIComponent(token)}`;
   }, [session]);
 
@@ -193,7 +167,6 @@ export default function ChatBox() {
     return () => ws.close();
   }, [wsUrl, currentChat?.id]);
 
-  // ---------- Join chat ----------
   const joinChat = async (chat: Chat) => {
     setCurrentChat(chat);
     localStorage.setItem("last_chat_id", chat.id);
@@ -216,7 +189,7 @@ export default function ChatBox() {
             `${m.chat_id}:${m.sender_id}:${m.inserted_at}:${m.content}`;
           seenIdsRef.current.add(key);
         });
-        setHistory(data.reverse()); // oldest -> newest
+        setHistory(data.reverse());
       }
     } catch (err) {
       console.error("[joinChat] history error:", err);
@@ -230,7 +203,6 @@ export default function ChatBox() {
     }
   };
 
-  // ---------- Auto-open last chat ----------
   useEffect(() => {
     if (!session || chats.length === 0) return;
     const last = localStorage.getItem("last_chat_id");
@@ -241,7 +213,6 @@ export default function ChatBox() {
     }
   }, [session, chats]);
 
-  // ---------- Create chat (Edge Function: create_chat) ----------
   const createChat = async () => {
     const name = prompt("Enter chat name (optional):") || null;
     const email = prompt(
@@ -249,7 +220,7 @@ export default function ChatBox() {
     )?.trim();
 
     const payload: any = email
-      ? { name, is_group: false, member_ids: [], other_user_email: email } // your EF can ignore member_ids for DM
+      ? { name, is_group: false, member_ids: [], other_user_email: email }
       : { name, is_group: true, member_ids: [session.user.id] };
 
     try {
@@ -267,7 +238,6 @@ export default function ChatBox() {
       const chat_id = data?.chat_id;
       if (!chat_id) return;
 
-      // Optimistic add; the other user will get the row via Realtime (chat_members)
       const newChat = {
         id: chat_id,
         name: name || (payload.is_group ? "Group chat" : "DM"),
@@ -288,7 +258,6 @@ export default function ChatBox() {
     }
   };
 
-  // ---------- Logout ----------
   const logOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -303,36 +272,26 @@ export default function ChatBox() {
     }
   };
 
-  // ---------- Send message ----------
-  // NOTE: We keep REST here so it persists through your existing server queue.
   const send = async () => {
     if (!currentChat || !input.trim()) return;
     const messageContent = input.trim();
     const clientMsgId = crypto.randomUUID();
 
-    // dedupe seed
     seenIdsRef.current.add(clientMsgId);
 
-     const API_URL = import.meta.env.VITE_BACKEND_PUBLIC_API_URL;
+    const API_URL = import.meta.env.VITE_BACKEND_PUBLIC_API_URL;
 
-    const res = await fetch(
-
-     
-
-      `${API_URL}/api/chats/${currentChat.id}/messages`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          content: messageContent,
-          client_msg_id: clientMsgId,
-        }),
-      }
-
-    );
+    const res = await fetch(`${API_URL}/api/chats/${currentChat.id}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        content: messageContent,
+        client_msg_id: clientMsgId,
+      }),
+    });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -341,7 +300,7 @@ export default function ChatBox() {
     }
 
     setInput("");
-    // Optimistic message (WS echo will keep in sync)
+
     setHistory((h) => [
       ...h,
       {
@@ -355,13 +314,11 @@ export default function ChatBox() {
     ]);
   };
 
-  // ---------- Render ----------
   if (!authReady) return <div className="p-4">Loading…</div>;
   if (!session) return <AuthForm />;
 
   return (
     <div className="grid h-screen grid-cols-[280px_1fr] gap-4 p-4 bg-gray-50">
-      {/* Sidebar */}
       <aside className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h3 className="text-lg font-semibold text-gray-800">Chats</h3>
@@ -407,7 +364,6 @@ export default function ChatBox() {
         </div>
       </aside>
 
-      {/* Main */}
       <main className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h3 className="text-lg font-semibold text-gray-800">

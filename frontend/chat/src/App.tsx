@@ -11,7 +11,7 @@ function App() {
 
   useEffect(() => {
 
-    // 1. Fetch current session once at startup
+    
 
     supabase.auth.getSession().then(({ data }) => {
 
@@ -21,7 +21,7 @@ function App() {
 
     });
 
-    // 2. Subscribe to login/logout changes
+    
 
     const {
       data: { subscription },
@@ -32,14 +32,14 @@ function App() {
     });
 
 
-    // cleanup
-    return () => subscription.unsubscribe();
     
+    return () => subscription.unsubscribe();
+
 
   }, []);
 
   if (!authReady) {
-    return <div>Loading...</div>; // small loading screen
+    return <div>Loading...</div>; 
   }
 
   return <>{session ? <ChatBox /> : <AuthForm />}</>;

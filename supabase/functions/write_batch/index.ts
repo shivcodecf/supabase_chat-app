@@ -1,4 +1,4 @@
-// supabase/functions/write_batch/index.ts
+
 import { serve } from "https://deno.land/std/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -14,7 +14,7 @@ serve(async (req) => {
 
   if (req.method !== "POST") return new Response(JSON.stringify({ error: "Not Found" }), { status: 404, headers });
 
-  const secret = req.headers.get("x-secret");  // getting from supabase headers
+  const secret = req.headers.get("x-secret");  
 
   if (secret !== Deno.env.get("EDGE_FUNCTION_SECRET")) {
 
@@ -49,17 +49,17 @@ serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! // bypass RLS inside function
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! 
   );
 
-  // Optional: dedupe if you created a unique index on (chat_id, client_msg_id)
+  
   const { data, error } = await supabase
     .from("messages")
     .upsert(messages, { onConflict: "chat_id,client_msg_id" })
     .select("id, chat_id, sender_id, content, inserted_at, client_msg_id");
 
   if (error) {
-    console.error("❌ Batch insert error:", error);
+    console.error("Batch insert error:", error);
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers });
   }
 

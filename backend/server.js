@@ -5,7 +5,7 @@ import chatRoutes from "./src/routes/chats.js";
 import messageRoutes from "./src/routes/messages.js";
 import { setupWebsocket, broadcastMessage } from "./src/websocket.js";
 
-import crypto from "crypto"; // ✅ for generating UUIDs
+import crypto from "crypto"; 
 import cors from "cors";
 
 dotenv.config();
@@ -20,38 +20,38 @@ app.use(
     origin: FRONTEND_URL,
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true, // set true only if you use cookies
+    credentials: true, 
   })
 );
 
-// log every request
+
 app.use((req, res, next) => {
-  console.log("👉 Incoming:", req.method, req.url);
+  console.log(" Incoming:", req.method, req.url);
   next();
 });
 
-// ------------------ MESSAGE QUEUE ------------------
+
 let messageQueue = [];
 
-// enqueue message
+
 export function enqueueMessage(msg) {
 
   if (!msg.client_msg_id) {
 
-    msg.client_msg_id = crypto.randomUUID();  //  Each message needs a unique identifier (client_msg_id) to avoid duplicates.
+    msg.client_msg_id = crypto.randomUUID();  
 
   }
 
   messageQueue.push(msg);
 
-  console.log("📩 Enqueued message:", msg);
+  console.log("Enqueued message:", msg);
 
-  // broadcast immediately
+  
   broadcastMessage(msg.chat_id, msg);  // 
 
 }
 
-// flush messages to Supabase Edge Function
+
 
 async function flushQueue() {
 
@@ -59,7 +59,7 @@ async function flushQueue() {
 
   const batch = messageQueue.splice(0, 500);
 
-  console.log(`🌀 Flushing ${batch.length} messages to Supabase...`);
+  console.log(` Flushing ${batch.length} messages to Supabase...`);
 
   try {
     const url = `${process.env.SUPABASE_URL}/functions/v1/write_batch`;
@@ -67,8 +67,8 @@ async function flushQueue() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, // ✅ required by Supabase gateway
-        "x-secret": process.env.EDGE_FUNCTION_SECRET, // ✅ checked by your function
+        "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, 
+        "x-secret": process.env.EDGE_FUNCTION_SECRET, 
       },
       body: JSON.stringify({ messages: batch }),
     });
@@ -76,14 +76,14 @@ async function flushQueue() {
     const text = await resp.text();
 
     if (!resp.ok) {
-      console.error(`❌ Failed to flush batch (${resp.status}): ${text}`);
-      // requeue for retry
+      console.error(` Failed to flush batch (${resp.status}): ${text}`);
+     
       messageQueue = [...batch, ...messageQueue];
     } else {
-      console.log(`✅ Batch persisted successfully: ${text}`);
+      console.log(` Batch persisted successfully: ${text}`);
     }
   } catch (err) {
-    console.error("⚠️ Error flushing batch:", err);
+    console.error("Error flushing batch:", err);
     messageQueue = [...batch, ...messageQueue];
   }
 
@@ -91,15 +91,15 @@ async function flushQueue() {
 
 
 
-// run flush loop every 1s
+
 setInterval(flushQueue, 1000);
 
-// ------------------ ROUTES ------------------
+
 app.use("/api", healthRoutes);
 app.use("/api", chatRoutes);
 app.use("/api", messageRoutes);
 
-// ------------------ SERVER & WS ------------------
+
 
 const PORT = process.env.PORT | 3000
 
